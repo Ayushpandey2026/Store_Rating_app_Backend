@@ -1,14 +1,6 @@
-const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
-require('dotenv').config({ path: './.env' });
-
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'store_rating_db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD,
-});
+require('dotenv').config();
+const pool = require('./db');
 
 const initDb = async () => {
   const client = await pool.connect();
@@ -79,13 +71,14 @@ const initDb = async () => {
 
     await client.query('COMMIT');
     console.log('✅ Database initialized successfully');
+    return { success: true };
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Database init failed:', err.message);
+    return { success: false, error: err.message };
   } finally {
     client.release();
-    // pool.end() sirf tab use karein agar aap ise manual script ki tarah chala rahe hain
   }
 };
 
-initDb();
+module.exports = { initDb };

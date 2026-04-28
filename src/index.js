@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const { initDb } = require('./config/initDb');
 
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
@@ -64,8 +65,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/stores', storeRoutes);
 
-// Health check
+// Health checks
 app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const pool = require('./config/db');
+    const result = await pool.query('SELECT COUNT(*) as user_count FROM users');
+    res.json({ status: 'OK', users: parseInt(result.rows[0].user_count), timestamp: new Date() });
+  } catch (err) {
+    res.status(500).json({ status: 'ERROR', message: err.message });
+  }
+});
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
@@ -77,7 +87,16 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+
+// Start server after DB init
+(async () => {
+  const dbResult = await initDb();
+  if (!dbResult.success) {
+    console.error('❌ Server startup aborted: database initialization failed');
+    process.exit(1);
+  }
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+})();
